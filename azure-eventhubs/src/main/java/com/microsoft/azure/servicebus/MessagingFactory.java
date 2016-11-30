@@ -70,9 +70,9 @@ public class MessagingFactory extends ClientEntity implements IAmqpConnection, I
 	 */
 	MessagingFactory(final ConnectionStringBuilder builder)
 	{
-            super("MessagingFactory".concat(StringUtil.getRandomString()), null);
+            super("MessagingFactory".concat(StringUtil.getRandomString()), null, true);
 
-            Timer.register(this.getClientId());
+            Timer.register(this.getClientId(), ClientEntity.transientExecutor);
             this.hostName = builder.getEndpoint().getHost();
 
             this.operationTimeout = builder.getOperationTimeout();
@@ -147,8 +147,7 @@ public class MessagingFactory extends ClientEntity implements IAmqpConnection, I
 			this.reactorScheduler = new ReactorDispatcher(newReactor);
 		}
 		
-		final Thread reactorThread = new Thread(new RunReactor(newReactor));
-		reactorThread.start();
+		ClientEntity.onStartLongLivedThread.accept(new RunReactor(newReactor));
 	}
         
         public CBSChannel getCBSChannel()

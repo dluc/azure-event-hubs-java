@@ -81,7 +81,7 @@ public final class PartitionReceiver extends ClientEntity implements IReceiverSe
 			final boolean isEpochReceiver)
 					throws ServiceBusException
 	{
-		super(null, null);
+		super(null, null, true);
 
 		this.underlyingFactory = factory;
 		this.eventHubName = eventHubName;
@@ -123,7 +123,8 @@ public final class PartitionReceiver extends ClientEntity implements IReceiverSe
 			{
 				return receiver;
 			}
-		});
+		},
+		ClientEntity.transientExecutor);
 	}
 
 	private CompletableFuture<Void> createInternalReceiver() throws ServiceBusException
@@ -135,7 +136,8 @@ public final class PartitionReceiver extends ClientEntity implements IReceiverSe
                     .thenAcceptAsync(new Consumer<MessageReceiver>()
                     {
                             public void accept(MessageReceiver r) { PartitionReceiver.this.internalReceiver = r;}
-                    });
+                    },
+		    ClientEntity.transientExecutor);
 	}
 
 	/**
@@ -348,7 +350,7 @@ public final class PartitionReceiver extends ClientEntity implements IReceiverSe
 					receiveHandler,
 					invokeWhenNoEvents);
 
-				final Thread onReceivePumpThread = new Thread(new Runnable()
+				ClientEntity.onStartLongLivedThread.accept(new Runnable()
 					{
 						@Override
 						public void run()
@@ -356,8 +358,6 @@ public final class PartitionReceiver extends ClientEntity implements IReceiverSe
 							receivePump.run();
 						}
 					});
-				
-				onReceivePumpThread.start();
 			}
 
 			return CompletableFuture.completedFuture(null);

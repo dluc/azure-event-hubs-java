@@ -25,7 +25,7 @@ public final class PartitionSender extends ClientEntity
 
 	private PartitionSender(MessagingFactory factory, String eventHubName, String partitionId)
 	{
-		super(null, null);
+		super(null, null, true);
 
 		this.partitionId = partitionId;
 		this.eventHubName = eventHubName;
@@ -45,7 +45,8 @@ public final class PartitionSender extends ClientEntity
 					{
 						return sender;
 					}
-				});
+				},
+				ClientEntity.transientExecutor);
 	}
 
 	private CompletableFuture<Void> createInternalSender() throws ServiceBusException
@@ -55,7 +56,8 @@ public final class PartitionSender extends ClientEntity
 				.thenAcceptAsync(new Consumer<MessageSender>()
 				{
 					public void accept(MessageSender a) { PartitionSender.this.internalSender = a;}
-				});
+				},
+				ClientEntity.transientExecutor);
 	}
 
 	/**

@@ -38,9 +38,10 @@ public class EventHubClient extends ClientEntity
 	private boolean isSenderCreateStarted;
         private CompletableFuture<Void> createSender;
         
-	private EventHubClient(ConnectionStringBuilder connectionString) throws IOException, IllegalEntityException
+	private EventHubClient(ConnectionStringBuilder connectionString, Consumer<Runnable> onStartLongLivedThread, 
+			ScheduledExecutorService transientExecutor) throws IOException, IllegalEntityException
 	{
-		super(StringUtil.getRandomString(), null);
+		super(StringUtil.getRandomString(), null, onStartLongLivedThread, transientExecutor);
 
 		this.eventHubName = connectionString.getEntityPath();
 		this.senderCreateSync = new Object();
@@ -53,12 +54,13 @@ public class EventHubClient extends ClientEntity
 	 * @throws ServiceBusException If Service Bus service encountered problems during connection creation. 
 	 * @throws IOException  If the underlying Proton-J layer encounter network errors.
 	 */
-	public static EventHubClient createFromConnectionStringSync(final String connectionString)
+	public static EventHubClient createFromConnectionStringSync(final String connectionString, final Consumer<Runnable> onStartLongLivedThread,
+			final ScheduledExecutorService transientExecutor)
 			throws ServiceBusException, IOException
 	{
 		try
 		{
-			return createFromConnectionString(connectionString).get();
+			return createFromConnectionString(connectionString, onStartLongLivedThread, transientExecutor).get();
 		}
 		catch (InterruptedException|ExecutionException exception)
 		{
@@ -88,6 +90,12 @@ public class EventHubClient extends ClientEntity
 		return null;
 	}
 
+	public static EventHubClient createFromConnectionStringSync(final String connectionString)
+			throws ServiceBusException, IOException
+	{
+		return createFromConnectionStringSync(connectionString, null, null);
+	}
+	
 	/**
 	 * Factory method to create an instance of {@link EventHubClient} using the supplied connectionString.
 	 * In a normal scenario (when re-direct is not enabled) - one EventHubClient instance maps to one Connection to the Azure ServiceBus EventHubs service.
@@ -99,11 +107,12 @@ public class EventHubClient extends ClientEntity
 	 * @throws ServiceBusException If Service Bus service encountered problems during connection creation. 
 	 * @throws IOException  If the underlying Proton-J layer encounter network errors.
 	 */
-	public static CompletableFuture<EventHubClient> createFromConnectionString(final String connectionString)
+	public static CompletableFuture<EventHubClient> createFromConnectionString(final String connectionString, final Consumer<Runnable> onStartLongLivedThread,
+			final ScheduledExecutorService transientExecutor)
 			throws ServiceBusException, IOException
 	{
 		ConnectionStringBuilder connStr = new ConnectionStringBuilder(connectionString);
-		final EventHubClient eventHubClient = new EventHubClient(connStr);
+		final EventHubClient eventHubClient = new EventHubClient(connStr, onStartLongLivedThread, transientExecutor);
 
 		return MessagingFactory.createFromConnectionString(connectionString.toString())
 				.thenApplyAsync(new Function<MessagingFactory, EventHubClient>()
@@ -114,8 +123,16 @@ public class EventHubClient extends ClientEntity
 						eventHubClient.underlyingFactory = factory;
 						return eventHubClient;
 					}
-				});
+				},
+				ClientEntity.transientExecutor);
 	}
+
+	public static CompletableFuture<EventHubClient> createFromConnectionString(final String connectionString)
+			throws ServiceBusException, IOException
+	{
+		return createFromConnectionString(connectionString, null, null);
+	}
+
 
 	/**
 	 * Synchronous version of {@link #send(EventData)}. 
@@ -196,7 +213,8 @@ public class EventHubClient extends ClientEntity
 			{
 				return EventHubClient.this.sender.send(data.toAmqpMessage());
 			}
-		});
+		},
+		ClientEntity.transientExecutor);
 	}
 
 	/**
@@ -297,7 +315,8 @@ public class EventHubClient extends ClientEntity
 			{
 				return EventHubClient.this.sender.send(EventDataUtil.toAmqpMessages(eventDatas));
 			}
-		});
+		},
+		ClientEntity.transientExecutor);
 	}
 
 	/**
@@ -385,7 +404,8 @@ public class EventHubClient extends ClientEntity
 			{
 				return EventHubClient.this.sender.send(eventData.toAmqpMessage(partitionKey));
 			}
-		});
+		},
+		ClientEntity.transientExecutor);
 	}
 
 	/**
@@ -472,7 +492,8 @@ public class EventHubClient extends ClientEntity
 			{
 				return EventHubClient.this.sender.send(EventDataUtil.toAmqpMessages(eventDatas, partitionKey));
 			}
-		});
+		},
+		ClientEntity.transientExecutor);
 	}
 
 	/**
@@ -944,7 +965,8 @@ public class EventHubClient extends ClientEntity
                                     {
                                         return EventHubClient.this.underlyingFactory.close();
                                     }
-                                })
+                                },
+                                ClientEntity.transientExecutor)
                             : this.underlyingFactory.close();
 
                         return internalSenderClose;
@@ -966,7 +988,8 @@ public class EventHubClient extends ClientEntity
 							.thenAcceptAsync(new Consumer<MessageSender>()
 							{
 								public void accept(MessageSender a) { EventHubClient.this.sender = a;}
-							});
+							},
+							ClientEntity.transientExecutor);
 
 					this.isSenderCreateStarted = true;
 				}

@@ -83,7 +83,7 @@ public final class MessageReceiver extends ClientEntity implements IAmqpReceiver
                         final SenderSettleMode serviceSettleMode,
                         final Duration openTimeout)
 	{
-		super(name, factory);
+		super(name, factory, false);
 
 		this.underlyingFactory = factory;
 		this.operationTimeout = factory.getOperationTimeout();

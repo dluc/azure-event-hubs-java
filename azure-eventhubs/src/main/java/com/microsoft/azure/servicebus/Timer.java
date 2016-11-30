@@ -7,6 +7,7 @@ package com.microsoft.azure.servicebus;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -18,11 +19,11 @@ import java.util.logging.Logger;
  */
 final class Timer
 {
-	private static ScheduledThreadPoolExecutor executor = null;
+	private static ScheduledExecutorService executor = null;
 
 	private static final Logger TRACE_LOGGER = Logger.getLogger(ClientConstants.SERVICEBUS_CLIENT_TRACE);
-	private static final HashSet<String> references = new HashSet<String>();
-	private static final Object syncReferences = new Object();
+	//private static final HashSet<String> references = new HashSet<String>();
+	//private static final Object syncReferences = new Object();
 
 	private Timer() 
 	{
@@ -46,8 +47,10 @@ final class Timer
 		}
 	}
 
-	static void register(final String clientId)
+	static void register(final String clientId, final ScheduledExecutorService timerExecutor)
 	{
+		Timer.executor = timerExecutor;
+		/*
 		synchronized (syncReferences)
 		{
 			if (references.size() == 0 && (executor == null || executor.isShutdown()))
@@ -64,10 +67,12 @@ final class Timer
 
 			references.add(clientId);
 		}
+		*/
 	}
 
 	static void unregister(final String clientId)
 	{
+		/*
 		synchronized (syncReferences)
 		{
 			if (references.remove(clientId) && references.size() == 0 && executor != null)
@@ -80,5 +85,6 @@ final class Timer
 				executor.shutdownNow();
 			}
 		}
+		*/
 	}
 }
